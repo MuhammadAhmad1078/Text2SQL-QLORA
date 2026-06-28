@@ -422,7 +422,7 @@ def load_model_and_tokenizer(
     print(f"Loading tokenizer: {model_name}")
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
-        trust_remote_code=True,  # Required for Phi-3
+        trust_remote_code=False, # Use native implementation to avoid RoPE scaling issues
         padding_side="left",     # Left-pad for batch generation
     )
 
@@ -443,7 +443,7 @@ def load_model_and_tokenizer(
         model_name,
         quantization_config=bnb_config,
         device_map=device_map,
-        trust_remote_code=True,  # Required for Phi-3
+        trust_remote_code=False, # Use native implementation to avoid RoPE scaling issues
         attn_implementation="eager",  # Avoids flash-attention issues on T4
     )
 
