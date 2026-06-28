@@ -1,0 +1,6 @@
+# This directory holds raw Spider data (downloaded separately, not checked into git).
+# Expected contents after setup:
+#   data/spider/train_spider.json
+#   data/spider/dev.json
+#   data/spider/tables.json
+#   data/spider/database/       (SQLite database files for execution accuracy)

@@ -1,0 +1,37 @@
+# ==============================================================================
+# Text-to-SQL QLoRA Fine-Tuning — Dependencies
+# ==============================================================================
+# Pinned to known-compatible versions as of June 2025.
+# Install with: pip install -r requirements.txt
+# For Kaggle: most of torch/transformers are pre-installed; you may only need
+# to pip install the delta (peft, bitsandbytes, trl, wandb, etc.).
+# ==============================================================================
+
+# --- Core ML / Training ---
+torch>=2.1.0
+transformers>=4.40.0
+accelerate>=0.30.0
+peft>=0.11.0
+bitsandbytes>=0.43.0
+trl>=0.9.0
+datasets>=2.19.0
+
+# --- Evaluation ---
+evaluate>=0.4.0
+sqlparse>=0.5.0           # SQL normalization for exact-match comparison
+
+# --- Experiment Tracking ---
+wandb>=0.17.0
+
+# --- Serving ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+
+# --- Load Testing ---
+locust>=2.29.0
+
+# --- Utilities ---
+pyyaml>=6.0              # Config file parsing
+tqdm>=4.66.0
+jsonlines>=4.0.0

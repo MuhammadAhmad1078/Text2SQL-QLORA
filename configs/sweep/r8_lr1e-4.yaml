@@ -1,0 +1,24 @@
+# ==============================================================================
+# Sweep Config 1: Low-rank, conservative LR
+# ==============================================================================
+# Hypothesis: A smaller adapter (r=8) with a lower learning rate may
+# generalize better if the task doesn't need high adapter capacity.
+# This is the "underfitting probe" — if it matches r=16 performance,
+# the extra capacity wasn't needed, and we save memory.
+# ==============================================================================
+
+lora:
+  r: 8
+  lora_alpha: 16            # Keep alpha = 2*r
+
+training:
+  learning_rate: 1.0e-4
+
+wandb:
+  run_name: "phi3-r8-lr1e4"
+  tags:
+    - "qlora"
+    - "phi3"
+    - "spider"
+    - "sweep"
+    - "low-rank"

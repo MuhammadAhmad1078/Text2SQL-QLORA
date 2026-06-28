@@ -1,0 +1,23 @@
+# ==============================================================================
+# Sweep Config 2: Default rank, default LR (matches default.yaml baseline)
+# ==============================================================================
+# This is the README's "starting value" config — included in the sweep
+# directory for completeness so all three sweep runs are launched the
+# same way: python scripts/train_qlora.py --config configs/sweep/<file>.yaml
+# ==============================================================================
+
+lora:
+  r: 16
+  lora_alpha: 32
+
+training:
+  learning_rate: 2.0e-4
+
+wandb:
+  run_name: "phi3-r16-lr2e4"
+  tags:
+    - "qlora"
+    - "phi3"
+    - "spider"
+    - "sweep"
+    - "baseline-config"

@@ -1,0 +1,55 @@
+# ==============================================================================
+# .gitignore — Text-to-SQL QLoRA Project
+# ==============================================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Jupyter / Kaggle ---
+.ipynb_checkpoints/
+*.ipynb
+
+# --- Data (too large for git; download via script) ---
+data/spider/
+data/processed/
+
+# --- Model outputs & checkpoints (large binary files) ---
+outputs/
+*.bin
+*.safetensors
+*.gguf
+*.pt
+*.pth
+
+# --- Weights & Biases ---
+wandb/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+.dockerignore
+
+# --- Logs ---
+*.log
+logs/
+cursor-build-prompt.md

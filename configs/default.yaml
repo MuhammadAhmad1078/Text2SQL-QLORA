@@ -1,0 +1,80 @@
+# ==============================================================================
+# Default Training Configuration — Text-to-SQL QLoRA
+# ==============================================================================
+# This is the "starting point" config from the README's hyperparameter table.
+# CLI args override any value set here.
+# To run a sweep, see configs/sweep/ for variant configs.
+# ==============================================================================
+
+# --- Model ---
+model:
+  base_model: "microsoft/Phi-3-mini-4k-instruct"
+  # Switch to "meta-llama/Meta-Llama-3.1-8B-Instruct" once pipeline is validated
+
+# --- Quantization (QLoRA) ---
+quantization:
+  load_in_4bit: true
+  bnb_4bit_quant_type: "nf4"          # NF4 = NormalFloat4, the QLoRA default
+  bnb_4bit_compute_dtype: "bfloat16"  # Compute in bf16 for stability
+  bnb_4bit_use_double_quant: true     # Nested quantization saves ~0.4 bits/param
+
+# --- LoRA ---
+lora:
+  r: 16                        # LoRA rank — controls adapter capacity
+  lora_alpha: 32               # Scaling factor; common heuristic: alpha = 2*r
+  lora_dropout: 0.05           # Light dropout to regularize adapter weights
+  target_modules:              # Phi-3 attention projection layers
+    - "qkv_proj"               # Phi-3 uses fused QKV; for Llama use q_proj, k_proj, v_proj
+  bias: "none"                 # Standard for QLoRA — don't train bias terms
+  task_type: "CAUSAL_LM"
+
+# --- Training ---
+training:
+  num_epochs: 3
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4     # Effective batch size = 4 * 4 = 16
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.03                 # ~3% of steps for LR warmup
+  lr_scheduler_type: "cosine"
+  max_seq_length: 1024               # Spider queries + schema rarely exceed this
+  logging_steps: 10
+  eval_steps: 50                     # Evaluate on val set every 50 steps
+  save_steps: 50
+  save_total_limit: 3                # Keep only the 3 most recent checkpoints
+  fp16: false
+  bf16: true                         # Use bf16 if GPU supports it (T4: use fp16 instead)
+  gradient_checkpointing: true       # Trades compute for memory — essential on 16GB
+  optim: "paged_adamw_8bit"          # 8-bit paged optimizer from bitsandbytes
+  seed: 42
+
+# --- Data ---
+data:
+  train_path: "data/processed/train.json"
+  val_path: "data/processed/val.json"
+  test_path: "data/processed/dev.json"
+  prompt_template: |
+    Given the following database schema, write a SQL query that answers the question.
+
+    Schema:
+    {schema}
+
+    Question: {question}
+
+    SQL:
+
+# --- Experiment Tracking ---
+wandb:
+  project: "text2sql-qlora"
+  entity: null                  # Set to your W&B username/team, or null for default
+  run_name: null                # Auto-generated if null (e.g., "phi3-r16-lr2e4")
+  tags:
+    - "qlora"
+    - "phi3"
+    - "spider"
+
+# --- Output ---
+output:
+  output_dir: "outputs/"
+  logging_dir: "outputs/logs/"

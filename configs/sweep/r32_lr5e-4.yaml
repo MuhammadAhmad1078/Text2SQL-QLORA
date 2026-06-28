@@ -1,0 +1,25 @@
+# ==============================================================================
+# Sweep Config 3: High-rank, aggressive LR
+# ==============================================================================
+# Hypothesis: More adapter capacity (r=32) with a higher LR (5e-4) may
+# learn faster and capture more complex SQL patterns (multi-table joins,
+# nested subqueries). Risk: overfitting to Spider's schema distribution
+# and catastrophic forgetting of general instruction-following.
+# Monitor val loss closely — if it diverges, this config is too aggressive.
+# ==============================================================================
+
+lora:
+  r: 32
+  lora_alpha: 64             # Keep alpha = 2*r
+
+training:
+  learning_rate: 5.0e-4
+
+wandb:
+  run_name: "phi3-r32-lr5e4"
+  tags:
+    - "qlora"
+    - "phi3"
+    - "spider"
+    - "sweep"
+    - "high-rank"
