@@ -428,6 +428,21 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
     # --- Step 6: Setup SFTTrainer ---
     print(f"\n[6/6] Initializing trainer...")
 
+    # Explicitly initialise W&B before building the trainer so that
+    # wandb.config.update() has an active run. (In new trl/transformers,
+    # wandb.init() is only called lazily during trainer.train(), which is
+    # too late for our config logging.)
+    import wandb
+    if not wandb.run:
+        wandb.init(
+            project=config["wandb"]["project"],
+            name=config["wandb"]["run_name"],
+            tags=config["wandb"].get("tags", []),
+            group="qlora-sweeps",
+            job_type="train",
+        )
+    wandb.config.update(config, allow_val_change=True)
+
     # Design decision: Compute loss only on the completion target (SQL)
     # The template starts the assistant response after "SQL:"
     response_template = "SQL:"
@@ -455,11 +470,6 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
 
     trainer = SFTTrainer(**_trainer_kwargs)
 
-    # Log hyperparameters to wandb
-    if trainer.is_world_process_zero():
-        import wandb
-        wandb.config.update(config)
-
     print("\nStarting SFT Trainer...")
     trainer.train()
 
@@ -467,6 +477,7 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
     print(f"\nTraining completed. Saving best model checkpoint to: {t_cfg['output_dir']}")
     trainer.save_model(t_cfg["output_dir"])
     tokenizer.save_pretrained(t_cfg["output_dir"])
+    wandb.finish()
     print("✓ Model and tokenizer saved successfully.")
 
 
