@@ -128,7 +128,12 @@ if not _collator_imported:
 
             for f in features:
                 ids = list(f["input_ids"])
-                mask = list(f["attention_mask"])
+                # attention_mask may be absent in newer trl (only input_ids + labels
+                # are stored after pre-tokenisation).  Generate it from the ids.
+                if "attention_mask" in f:
+                    mask = list(f["attention_mask"])
+                else:
+                    mask = [1] * len(ids)  # all real tokens before padding
                 pad_len = max_len - len(ids)
 
                 input_ids_padded.append(ids + [pad_id] * pad_len)
