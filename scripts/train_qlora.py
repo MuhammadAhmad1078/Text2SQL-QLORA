@@ -109,32 +109,64 @@ if not _collator_imported:
         def __call__(self, features: list[dict]) -> dict:
             import torch
 
-            # Stack input_ids (already tokenised by SFTTrainer's internal collator path)
-            input_ids = torch.tensor(
-                [f["input_ids"] for f in features], dtype=torch.long
+            # ----------------------------------------------------------------
+            # In newer trl the dataset is pre-tokenised internally, so each
+            # feature already has integer lists of potentially *different*
+            # lengths.  We must pad to the longest sequence in the batch before
+            # we can stack into a 2-D tensor.
+            # ----------------------------------------------------------------
+            pad_id = (
+                self.tokenizer.pad_token_id
+                if self.tokenizer.pad_token_id is not None
+                else 0
             )
-            attention_mask = torch.tensor(
-                [f["attention_mask"] for f in features], dtype=torch.long
-            )
+            max_len = max(len(f["input_ids"]) for f in features)
 
-            # Start with a copy of input_ids as labels, then mask the prompt
-            labels = input_ids.clone()
+            input_ids_padded: list[list[int]] = []
+            attention_mask_padded: list[list[int]] = []
+            labels_padded: list[list[int]] = []
 
+            for f in features:
+                ids = list(f["input_ids"])
+                mask = list(f["attention_mask"])
+                pad_len = max_len - len(ids)
+
+                input_ids_padded.append(ids + [pad_id] * pad_len)
+                attention_mask_padded.append(mask + [0] * pad_len)
+
+                # Use pre-built labels if the trainer already created them
+                # (new trl does this during "Building labels" dataset step).
+                # Otherwise fall back to input_ids as the starting point.
+                if "labels" in f:
+                    lbls = list(f["labels"]) + [self.ignore_index] * pad_len
+                else:
+                    lbls = ids + [self.ignore_index] * pad_len
+
+                labels_padded.append(lbls)
+
+            input_ids = torch.tensor(input_ids_padded, dtype=torch.long)
+            attention_mask = torch.tensor(attention_mask_padded, dtype=torch.long)
+            labels = torch.tensor(labels_padded, dtype=torch.long)
+
+            # ----------------------------------------------------------------
+            # Apply completion-only masking: find the last occurrence of the
+            # response template (e.g. "SQL:") and mask everything before it
+            # with ignore_index so loss is only computed on the SQL output.
+            # ----------------------------------------------------------------
             tmpl = self.response_token_ids
             tmpl_len = len(tmpl)
 
             for i in range(labels.size(0)):
-                seq = labels[i].tolist()
-                # Find the *last* occurrence of the response template
+                seq = input_ids[i].tolist()
+                # Search from right so we hit the last "SQL:" occurrence
                 found = False
                 for j in range(len(seq) - tmpl_len, -1, -1):
                     if seq[j : j + tmpl_len] == tmpl:
-                        # Mask everything up to and including the template
                         labels[i, : j + tmpl_len] = self.ignore_index
                         found = True
                         break
                 if not found:
-                    # Template absent — mask the whole sequence so no spurious loss
+                    # Template absent — mask entire sequence; no spurious loss
                     labels[i, :] = self.ignore_index
 
             return {
