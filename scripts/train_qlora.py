@@ -396,16 +396,30 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
         greater_is_better=False,
     )
 
-    # Try new-style SFTConfig first (trl >= 0.10)
+    # Try new-style SFTConfig first (trl >= 0.10).
+    # Parameter names inside SFTConfig changed across versions, so we inspect
+    # the signature at runtime rather than hardcoding version assumptions:
+    #   max_seq_length  → trl 0.10 – 0.12
+    #   max_length      → trl 0.13+
+    #   dataset_text_field exists in some versions, absent in others
     try:
+        import inspect
         from trl import SFTConfig
-        training_args = SFTConfig(
-            **_common_args,
-            max_seq_length=t_cfg["max_seq_length"],
-            dataset_text_field="text",
-        )
+
+        _sft_sig = inspect.signature(SFTConfig.__init__).parameters
+
+        _sft_extra: dict = {}
+        if "max_seq_length" in _sft_sig:
+            _sft_extra["max_seq_length"] = t_cfg["max_seq_length"]
+        elif "max_length" in _sft_sig:
+            _sft_extra["max_length"] = t_cfg["max_seq_length"]
+        # dataset_text_field tells SFTConfig which column holds the text
+        if "dataset_text_field" in _sft_sig:
+            _sft_extra["dataset_text_field"] = "text"
+
+        training_args = SFTConfig(**_common_args, **_sft_extra)
         _use_sft_config = True
-        print("  Using SFTConfig (trl >= 0.10 API)")
+        print(f"  Using SFTConfig (trl >= 0.10 API), extra kwargs: {list(_sft_extra)}")
     except ImportError:
         training_args = TrainingArguments(**_common_args)
         _use_sft_config = False
