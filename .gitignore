@@ -32,7 +32,8 @@ data/spider/
 data/processed/
 
 # --- Model outputs & checkpoints (large binary files) ---
-outputs/
+outputs/**/checkpoint-*/
+outputs/**/adapter_model.safetensors
 *.bin
 *.safetensors
 *.gguf

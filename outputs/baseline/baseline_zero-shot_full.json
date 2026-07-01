@@ -1,0 +1,130 @@
+{
+  "metrics": {
+    "mode": "zero-shot",
+    "total_examples": 10,
+    "exact_match_accuracy": 30.0,
+    "execution_accuracy": 80.0,
+    "exact_match_count": 3,
+    "execution_match_count": 8,
+    "execution_error_count": 0,
+    "avg_generation_time_s": 2.9
+  },
+  "predictions": [
+    {
+      "index": 0,
+      "db_id": "concert_singer",
+      "question": "How many singers do we have?",
+      "gold_sql": "SELECT count(*) FROM singer",
+      "pred_sql": "SELECT COUNT(*) FROM singer",
+      "exact_match": true,
+      "exec_match": true,
+      "pred_error": null,
+      "generation_time_s": 1.48
+    },
+    {
+      "index": 1,
+      "db_id": "concert_singer",
+      "question": "What is the total number of singers?",
+      "gold_sql": "SELECT count(*) FROM singer",
+      "pred_sql": "SELECT COUNT(*) FROM singer",
+      "exact_match": true,
+      "exec_match": true,
+      "pred_error": null,
+      "generation_time_s": 0.91
+    },
+    {
+      "index": 2,
+      "db_id": "concert_singer",
+      "question": "Show name, country, age for all singers ordered by age from the oldest to the youngest.",
+      "gold_sql": "SELECT name ,  country ,  age FROM singer ORDER BY age DESC",
+      "pred_sql": "SELECT Name, Country, Age\nFROM singer\nORDER BY Age DESC",
+      "exact_match": false,
+      "exec_match": true,
+      "pred_error": null,
+      "generation_time_s": 1.62
+    },
+    {
+      "index": 3,
+      "db_id": "concert_singer",
+      "question": "What are the names, countries, and ages for every singer in descending order of age?",
+      "gold_sql": "SELECT name ,  country ,  age FROM singer ORDER BY age DESC",
+      "pred_sql": "SELECT Name, Country, Age\nFROM singer\nORDER BY Age DESC",
+      "exact_match": false,
+      "exec_match": true,
+      "pred_error": null,
+      "generation_time_s": 1.61
+    },
+    {
+      "index": 4,
+      "db_id": "concert_singer",
+      "question": "What is the average, minimum, and maximum age of all singers from France?",
+      "gold_sql": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'",
+      "pred_sql": "SELECT AVG(singer.Age) AS Average_Age, MIN(singer.Age) AS Minimum_Age, MAX(singer.Age) AS Maximum_Age\nFROM singer\nWHERE singer.Country = 'France'",
+      "exact_match": false,
+      "exec_match": true,
+      "pred_error": null,
+      "generation_time_s": 4.59
+    },
+    {
+      "index": 5,
+      "db_id": "concert_singer",
+      "question": "What is the average, minimum, and maximum age for all French singers?",
+      "gold_sql": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'",
+      "pred_sql": "SELECT AVG(s.Age) AS Average_Age, MIN(s.Age) AS Minimum_Age, MAX(s.Age) AS Maximum_Age\nFROM singer s\nWHERE s.Country = 'France'",
+      "exact_match": false,
+      "exec_match": true,
+      "pred_error": null,
+      "generation_time_s": 4.61
+    },
+    {
+      "index": 6,
+      "db_id": "concert_singer",
+      "question": "Show the name and the release year of the song by the youngest singer.",
+      "gold_sql": "SELECT song_name ,  song_release_year FROM singer ORDER BY age LIMIT 1",
+      "pred_sql": "SELECT s.Name, s.Song_release_year\nFROM singer s\nJOIN singer_in_concert sic ON s.Singer_ID = sic.Singer_ID\nJOIN concert c ON c.concert_ID = sic.concert_ID\nJOIN stadium st ON st.Stadium_ID = c.Stadium_ID\nORDER BY s.Age ASC\nLIMIT 1",
+      "exact_match": false,
+      "exec_match": false,
+      "pred_error": null,
+      "generation_time_s": 8.02
+    },
+    {
+      "index": 7,
+      "db_id": "concert_singer",
+      "question": "What are the names and release years for all the songs of the youngest singer?",
+      "gold_sql": "SELECT song_name ,  song_release_year FROM singer ORDER BY age LIMIT 1",
+      "pred_sql": "SELECT Name, Song_release_year\nFROM singer\nWHERE Age = (SELECT MIN(Age) FROM singer)",
+      "exact_match": false,
+      "exec_match": false,
+      "pred_error": null,
+      "generation_time_s": 2.49
+    },
+    {
+      "index": 8,
+      "db_id": "concert_singer",
+      "question": "What are all distinct countries where singers above age 20 are from?",
+      "gold_sql": "SELECT DISTINCT country FROM singer WHERE age  >  20",
+      "pred_sql": "SELECT DISTINCT Country FROM singer WHERE Age > 20",
+      "exact_match": true,
+      "exec_match": true,
+      "pred_error": null,
+      "generation_time_s": 1.63
+    },
+    {
+      "index": 9,
+      "db_id": "concert_singer",
+      "question": "What are  the different countries with singers above age 20?",
+      "gold_sql": "SELECT DISTINCT country FROM singer WHERE age  >  20",
+      "pred_sql": "SELECT DISTINCT singer.Country\nFROM singer\nWHERE singer.Age > 20",
+      "exact_match": false,
+      "exec_match": true,
+      "pred_error": null,
+      "generation_time_s": 2.03
+    }
+  ],
+  "config": {
+    "mode": "zero-shot",
+    "num_few_shot": 0,
+    "seed": 42,
+    "total_examples": 10
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "mode": "zero-shot",
+  "total_examples": 10,
+  "exact_match_accuracy": 30.0,
+  "execution_accuracy": 80.0,
+  "exact_match_count": 3,
+  "execution_match_count": 8,
+  "execution_error_count": 0,
+  "avg_generation_time_s": 2.9
+}

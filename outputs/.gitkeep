@@ -1,0 +1,2 @@
+# Model checkpoints and training outputs are saved here.
+# This directory is gitignored — checkpoints are too large for version control.
