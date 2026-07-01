@@ -352,11 +352,15 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
         bnb_4bit_use_double_quant=config["quantization"]["bnb_4bit_use_double_quant"],
     )
 
-    # Note: trust_remote_code=False leverages the native implementation
+    # Note: trust_remote_code=False leverages the native implementation.
+    # device_map={"": 0} forces the entire model onto GPU 0.
+    # Using "auto" on Kaggle's dual-T4 environment splits layers across
+    # cuda:0 and cuda:1, which triggers a device-mismatch bug inside
+    # trl's _chunked_cross_entropy_loss (valid mask on CPU, hidden on cuda:1).
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
         quantization_config=bnb_config,
-        device_map="auto",
+        device_map={"": 0},
         trust_remote_code=False,
         attn_implementation="eager",  # Avoids flash-attention issues on T4 GPUs
     )
