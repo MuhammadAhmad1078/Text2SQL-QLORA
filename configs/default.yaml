@@ -43,8 +43,9 @@ training:
   eval_steps: 100                    # Evaluate every 100 steps (fewer steps now per epoch)
   save_steps: 100
   save_total_limit: 3                # Keep only the 3 most recent checkpoints
-  fp16: true                         # T4 has native fp16 tensor cores (not bf16)
-  bf16: false                        # bf16 is NOT accelerated on T4
+  fp16: false                        # Disable AMP GradScaler — bfloat16 params cause
+  bf16: false                        # unscale errors on T4. LoRA adapters train in fp32
+                                     # (only 6M params); base model uses bnb_4bit_compute_dtype=fp16.
   gradient_checkpointing: true       # Trades compute for memory — essential on 16GB
   optim: "paged_adamw_8bit"          # 8-bit paged optimizer from bitsandbytes
   seed: 42
