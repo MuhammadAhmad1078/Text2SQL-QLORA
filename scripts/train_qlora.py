@@ -53,17 +53,95 @@ from transformers import (
 )
 from trl import SFTTrainer
 
-# DataCollatorForCompletionOnlyLM moved in trl >= 0.9.x — handle both locations
+# ---------------------------------------------------------------------------
+# DataCollatorForCompletionOnlyLM compatibility shim
+# ---------------------------------------------------------------------------
+# This class was removed from trl >= 0.13.  We try the known import locations
+# first; if every one fails we supply our own minimal but correct implementation
+# so the script runs on ANY trl version without requiring an upgrade.
+# ---------------------------------------------------------------------------
+_collator_imported = False
 try:
     from trl import DataCollatorForCompletionOnlyLM
+    _collator_imported = True
 except ImportError:
+    pass
+
+if not _collator_imported:
     try:
         from trl.trainer import DataCollatorForCompletionOnlyLM
+        _collator_imported = True
     except ImportError:
-        raise ImportError(
-            "Could not import DataCollatorForCompletionOnlyLM from trl. "
-            "Please upgrade: pip install --upgrade trl"
-        )
+        pass
+
+if not _collator_imported:
+    from dataclasses import dataclass, field
+    from typing import Optional, Union
+
+    @dataclass
+    class DataCollatorForCompletionOnlyLM:
+        """Minimal self-contained replacement for trl's removed collator.
+
+        Masks every token *before* (and including) the response template with
+        ``ignore_index`` so the cross-entropy loss is only computed on the
+        completion (the SQL query).
+
+        Args:
+            response_template: The string that separates prompt from completion,
+                e.g. ``"SQL:"``.
+            tokenizer: The HuggingFace tokenizer.
+            ignore_index: Label value to ignore in loss computation (default -100).
+        """
+
+        response_template: Union[str, list]
+        tokenizer: object
+        ignore_index: int = -100
+
+        def __post_init__(self) -> None:
+            if isinstance(self.response_template, str):
+                # Encode without special tokens so we get the raw sub-word ids
+                self.response_token_ids: list[int] = self.tokenizer.encode(
+                    self.response_template, add_special_tokens=False
+                )
+            else:
+                self.response_token_ids = list(self.response_template)
+
+        def __call__(self, features: list[dict]) -> dict:
+            import torch
+
+            # Stack input_ids (already tokenised by SFTTrainer's internal collator path)
+            input_ids = torch.tensor(
+                [f["input_ids"] for f in features], dtype=torch.long
+            )
+            attention_mask = torch.tensor(
+                [f["attention_mask"] for f in features], dtype=torch.long
+            )
+
+            # Start with a copy of input_ids as labels, then mask the prompt
+            labels = input_ids.clone()
+
+            tmpl = self.response_token_ids
+            tmpl_len = len(tmpl)
+
+            for i in range(labels.size(0)):
+                seq = labels[i].tolist()
+                # Find the *last* occurrence of the response template
+                found = False
+                for j in range(len(seq) - tmpl_len, -1, -1):
+                    if seq[j : j + tmpl_len] == tmpl:
+                        # Mask everything up to and including the template
+                        labels[i, : j + tmpl_len] = self.ignore_index
+                        found = True
+                        break
+                if not found:
+                    # Template absent — mask the whole sequence so no spurious loss
+                    labels[i, :] = self.ignore_index
+
+            return {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "labels": labels,
+            }
 
 # Import shared utilities
 # Add project root to path if running directly
