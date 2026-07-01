@@ -51,7 +51,19 @@ from transformers import (
     BitsAndBytesConfig,
     TrainingArguments,
 )
-from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
+from trl import SFTTrainer
+
+# DataCollatorForCompletionOnlyLM moved in trl >= 0.9.x — handle both locations
+try:
+    from trl import DataCollatorForCompletionOnlyLM
+except ImportError:
+    try:
+        from trl.trainer import DataCollatorForCompletionOnlyLM
+    except ImportError:
+        raise ImportError(
+            "Could not import DataCollatorForCompletionOnlyLM from trl. "
+            "Please upgrade: pip install --upgrade trl"
+        )
 
 # Import shared utilities
 # Add project root to path if running directly
