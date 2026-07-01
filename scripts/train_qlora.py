@@ -360,7 +360,15 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
     effective_batch_size = t_cfg["per_device_train_batch_size"] * t_cfg["gradient_accumulation_steps"]
     total_steps = (len(formatted_dataset["train"]) // effective_batch_size) * t_cfg["num_epochs"]
 
-    training_args = TrainingArguments(
+    # ---------------------------------------------------------------------------
+    # trl API compatibility:
+    #   trl < 0.10  → SFTTrainer accepts TrainingArguments + max_seq_length etc.
+    #   trl >= 0.10 → SFTTrainer requires SFTConfig (subclass of TrainingArguments)
+    #                 and no longer accepts max_seq_length / dataset_text_field /
+    #                 tokenizer as direct constructor kwargs.
+    # We detect which API is available and build the right objects accordingly.
+    # ---------------------------------------------------------------------------
+    _common_args = dict(
         output_dir=t_cfg["output_dir"],
         num_train_epochs=t_cfg["num_epochs"],
         per_device_train_batch_size=t_cfg["per_device_train_batch_size"],
@@ -368,7 +376,7 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
         gradient_accumulation_steps=t_cfg["gradient_accumulation_steps"],
         learning_rate=t_cfg["learning_rate"],
         weight_decay=t_cfg["weight_decay"],
-        warmup_ratio=t_cfg["warmup_ratio"],
+        warmup_steps=max(1, int(total_steps * t_cfg["warmup_ratio"])),
         lr_scheduler_type=t_cfg["lr_scheduler_type"],
         logging_steps=t_cfg["logging_steps"],
         eval_strategy="steps",
@@ -383,10 +391,25 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
         seed=t_cfg["seed"],
         report_to=["wandb"],
         run_name=config["wandb"]["run_name"],
-        load_best_model_at_end=True,  # Restores best checkpoint on validation loss
+        load_best_model_at_end=True,
         metric_for_best_model="loss",
         greater_is_better=False,
     )
+
+    # Try new-style SFTConfig first (trl >= 0.10)
+    try:
+        from trl import SFTConfig
+        training_args = SFTConfig(
+            **_common_args,
+            max_seq_length=t_cfg["max_seq_length"],
+            dataset_text_field="text",
+        )
+        _use_sft_config = True
+        print("  Using SFTConfig (trl >= 0.10 API)")
+    except ImportError:
+        training_args = TrainingArguments(**_common_args)
+        _use_sft_config = False
+        print("  Using TrainingArguments (trl < 0.10 API)")
 
     # --- Step 6: Setup SFTTrainer ---
     print(f"\n[6/6] Initializing trainer...")
@@ -399,21 +422,28 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
         tokenizer=tokenizer,
     )
 
-    trainer = SFTTrainer(
+    # Build SFTTrainer kwargs — some args moved into SFTConfig in newer trl
+    _trainer_kwargs: dict = dict(
         model=model,
         train_dataset=formatted_dataset["train"],
         eval_dataset=formatted_dataset["validation"],
-        max_seq_length=config["training"]["max_seq_length"],
-        tokenizer=tokenizer,
         data_collator=collator,
-        dataset_text_field="text",
         args=training_args,
     )
+    if _use_sft_config:
+        # New API: tokenizer → processing_class; max_seq_length/dataset_text_field in config
+        _trainer_kwargs["processing_class"] = tokenizer
+    else:
+        # Old API: tokenizer and SFT-specific args passed directly to trainer
+        _trainer_kwargs["tokenizer"] = tokenizer
+        _trainer_kwargs["max_seq_length"] = t_cfg["max_seq_length"]
+        _trainer_kwargs["dataset_text_field"] = "text"
+
+    trainer = SFTTrainer(**_trainer_kwargs)
 
     # Log hyperparameters to wandb
     if trainer.is_world_process_zero():
         import wandb
-        # Save run config
         wandb.config.update(config)
 
     print("\nStarting SFT Trainer...")
