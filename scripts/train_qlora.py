@@ -42,6 +42,10 @@ import yaml
 from pathlib import Path
 from typing import Any, Dict, List
 
+# Must be set BEFORE torch is imported so CUDA allocator picks it up at init time.
+# Reduces memory fragmentation caused by many small alloc/free cycles during training.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 import torch
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
@@ -295,9 +299,6 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     config["training"]["output_dir"] = str(output_dir)
 
-    # Reduce CUDA memory fragmentation — recommended by PyTorch for large models
-    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
-
     print("=" * 70)
     print(f"Starting QLoRA training run: {config['wandb']['run_name']}")
     print(f"Base model:                  {config['model']['base_model']}")
@@ -435,6 +436,10 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
         fp16=t_cfg["fp16"] if torch.cuda.is_available() else False,
         bf16=t_cfg["bf16"] if torch.cuda.is_available() else False,
         gradient_checkpointing=t_cfg["gradient_checkpointing"],
+        # use_reentrant=False uses the non-reentrant checkpoint implementation
+        # which has lower peak memory during backward recomputation and is
+        # the recommended default in PyTorch >= 2.1.
+        gradient_checkpointing_kwargs={"use_reentrant": False},
         optim=t_cfg["optim"],
         seed=t_cfg["seed"],
         report_to=["wandb"],
