@@ -31,20 +31,20 @@ lora:
 # --- Training ---
 training:
   num_epochs: 3
-  per_device_train_batch_size: 4
-  per_device_eval_batch_size: 4
-  gradient_accumulation_steps: 4     # Effective batch size = 4 * 4 = 16
+  per_device_train_batch_size: 1     # Kaggle T4 (14.6 GB): batch=1 prevents OOM
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 16    # Effective batch size = 1 * 16 = 16 (unchanged)
   learning_rate: 2.0e-4
   weight_decay: 0.01
   warmup_ratio: 0.03                 # ~3% of steps for LR warmup
   lr_scheduler_type: "cosine"
-  max_seq_length: 1024               # Spider queries + schema rarely exceed this
+  max_seq_length: 512                # Spider SQL fits in 512 tokens; saves 4× attention memory
   logging_steps: 10
-  eval_steps: 50                     # Evaluate on val set every 50 steps
-  save_steps: 50
+  eval_steps: 100                    # Evaluate every 100 steps (fewer steps now per epoch)
+  save_steps: 100
   save_total_limit: 3                # Keep only the 3 most recent checkpoints
-  fp16: false
-  bf16: true                         # Use bf16 if GPU supports it (T4: use fp16 instead)
+  fp16: true                         # T4 has native fp16 tensor cores (not bf16)
+  bf16: false                        # bf16 is NOT accelerated on T4
   gradient_checkpointing: true       # Trades compute for memory — essential on 16GB
   optim: "paged_adamw_8bit"          # 8-bit paged optimizer from bitsandbytes
   seed: 42

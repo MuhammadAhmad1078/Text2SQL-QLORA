@@ -295,6 +295,9 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     config["training"]["output_dir"] = str(output_dir)
 
+    # Reduce CUDA memory fragmentation — recommended by PyTorch for large models
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
     print("=" * 70)
     print(f"Starting QLoRA training run: {config['wandb']['run_name']}")
     print(f"Base model:                  {config['model']['base_model']}")
@@ -345,10 +348,14 @@ def run_training(config: dict[str, Any], cli_args: argparse.Namespace) -> None:
 
     # --- Step 3: Load Model in 4-Bit ---
     print(f"\n[3/6] Loading model {model_id} in 4-bit NF4...")
+    # 4-bit compute dtype: honour the fp16/bf16 flag from config.
+    # T4 GPUs have native fp16 tensor cores; bf16 is not hardware-accelerated.
+    _use_bf16 = config["training"].get("bf16", False) and not config["training"].get("fp16", False)
+    _compute_dtype = torch.bfloat16 if _use_bf16 else torch.float16
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=config["quantization"]["load_in_4bit"],
         bnb_4bit_quant_type=config["quantization"]["bnb_4bit_quant_type"],
-        bnb_4bit_compute_dtype=torch.float16 if not config["training"].get("bf16") else torch.bfloat16,
+        bnb_4bit_compute_dtype=_compute_dtype,
         bnb_4bit_use_double_quant=config["quantization"]["bnb_4bit_use_double_quant"],
     )
 
